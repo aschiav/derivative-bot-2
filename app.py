@@ -13,6 +13,18 @@ if not OPENAI_API_KEY or not ASSISTANT_ID:
 
 openai.api_key = OPENAI_API_KEY
 
+def ask_assistant_explain(func_str):
+    response = openai.chat.completions.create(
+        model="gpt-5.1-mini",  # or another model
+        messages=[
+            {"role": "system", "content": "You are a math tutor."},
+            {"role": "user", "content": f"Explain step by step how to take the derivative of {func_str}."}
+        ],
+        temperature=0
+    )
+    return response.choices[0].message["content"]
+
+
 # Minimal route
 @app.route("/")
 def home():
@@ -29,18 +41,22 @@ def derive():
     
     try:
         x = symbols('x')
-        f = sympify(func_str)          # Convert string to symbolic expression
-        f_prime = diff(f, x)           # Compute derivative
-        f_prime_latex = latex(f_prime) # Convert to LaTeX
+        f = sympify(func_str)
+        f_prime = diff(f, x)
+        f_prime_latex = latex(f_prime)
+
+        # --- OpenAI API call ---
+        explanation = ask_assistant_explain(func_str)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    # Optionally: send to OpenAI Assistant for formatting or explanations
-    # For now, just return the LaTeX derivative
     return jsonify({
         "input": func_str,
-        "derivative": f_prime_latex
+        "derivative": f_prime_latex,
+        "explanation": explanation
     })
+
 
 @app.route("/test", methods=["GET"])
 def test():
