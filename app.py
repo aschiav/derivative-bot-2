@@ -14,6 +14,11 @@ if not OPENAI_API_KEY or not ASSISTANT_ID:
 openai.api_key = OPENAI_API_KEY
 
 # Minimal route
+@app.route("/")
+def home():
+    return "Derivative bot is running! Use POST /derive to get derivatives."
+
+
 @app.route("/derive", methods=["POST"])
 def derive():
     data = request.get_json()
@@ -36,6 +41,16 @@ def derive():
         "input": func_str,
         "derivative": f_prime_latex
     })
+
+@app.route("/test", methods=["GET"])
+def test():
+    return '''
+        <form action="/derive" method="post">
+            Function: <input name="function" value="x**2 + 3*x + 5">
+            <input type="submit">
+        </form>
+    '''
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
