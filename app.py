@@ -13,16 +13,6 @@ register_heif_opener()  # Enable PIL to open .heic/.heif
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8 MB max upload
 
-@app.after_request
-def allow_canvas_iframe(resp):
-    # Remove old X-Frame-Options if any
-    resp.headers.pop("X-Frame-Options", None)
-    # Allow Canvas to frame your site (update the domain to your school’s Canvas)
-    resp.headers["Content-Security-Policy"] = (
-        "frame-ancestors 'self' https://*.instructure.com https://canvas.stjohns.edu"
-    )
-    return resp
-
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY")
@@ -40,12 +30,8 @@ HTML = """
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Derivative Tutor — Image → GPT-4o-mini</title>
-  <!-- MathJax for LaTeX -->
+  <title>Derivative Checker — Image → GPT-4o-mini</title>
   <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
-  <!-- Markdown + Sanitizer -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
     .card { border: 1px solid #e7e7e7; border-radius: 12px; padding: 1rem; margin-top: 1rem; }
@@ -55,21 +41,13 @@ HTML = """
     .muted { color: #666; font-size: .9rem; }
     button { padding: .6rem 1rem; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
     button:hover { background: #f0f0f0; }
-
-    /* Nicer typography for rendered Markdown */
-    .prose h1, .prose h2, .prose h3 { margin: .7rem 0 .35rem; }
-    .prose p { line-height: 1.6; margin: .5rem 0; }
-    .prose ul, .prose ol { padding-left: 1.2rem; margin: .5rem 0; }
-    .prose code { background: #f6f8fa; padding: .1rem .25rem; border-radius: 4px; }
-    .prose pre { background: #f6f8fa; padding: .6rem; border-radius: 8px; overflow: auto; }
-    .prose hr { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
   </style>
 </head>
 <body>
   <h1>Derivative Tutor</h1>
 
   <form method="POST" enctype="multipart/form-data" class="card">
-    <label>Upload a photo of your function, its derivative, and how you found the answer. The tutor will give you feedback!</label><br><br>
+    <label>Upload a photo of your function, its derivative, and how you found the answer. The tutor will give you feedback</label><br><br>
     <input type="file" name="equation_image" accept="image/*,.heic,.heif" required />
     <br><br>
     <button type="submit">Check my work</button>
@@ -87,21 +65,8 @@ HTML = """
       {% if error %}
         <pre>{{ error }}</pre>
       {% else %}
-        <!-- We'll render Markdown → HTML here, then typeset LaTeX with MathJax -->
-        <div id="model-feedback" class="prose"></div>
-        <script>
-          // Raw markdown from Flask (safe-encoded as JSON string)
-          const rawMd = {{ response_md|tojson }};
-          // Convert Markdown to HTML, then sanitize
-          const html = DOMPurify.sanitize(marked.parse(rawMd), {USE_PROFILES: {html: true}});
-          // Inject into the page
-          const el = document.getElementById('model-feedback');
-          el.innerHTML = html;
-          // Ask MathJax to typeset any LaTeX in the converted content
-          if (window.MathJax && MathJax.typesetPromise) {
-            MathJax.typesetPromise([el]);
-          }
-        </script>
+        <!-- Do NOT wrap the whole output in $$...$$. Let MathJax render any LaTeX the model includes. -->
+        <div id="model-feedback">{{ response_html | safe }}</div>
       {% endif %}
     </div>
   </div>
@@ -109,8 +74,6 @@ HTML = """
 </body>
 </html>
 """
-
-
 
 def to_data_url(img_bytes: bytes, mime: str) -> str:
     b64 = base64.b64encode(img_bytes).decode("utf-8")
