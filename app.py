@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify
 from sympy import symbols, sympify, diff, latex
 import openai
+import logging
 
 app = Flask(__name__)
 
@@ -22,6 +23,7 @@ def ask_assistant_explain(func_str):
         ],
         temperature=0
     )
+    logging.info(f"Sending request to OpenAI API for function: {func_str}")
     return response.choices[0].message["content"]
 
 
