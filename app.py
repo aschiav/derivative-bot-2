@@ -41,7 +41,7 @@ HTML = """
 <head>
   <meta charset="utf-8" />
   <title>Derivative Tutor — Image → GPT-4o-mini</title>
-  <!-- MathJax -->
+  <!-- MathJax for LaTeX -->
   <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
   <!-- Markdown + Sanitizer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -54,7 +54,6 @@ HTML = """
     pre { white-space: pre-wrap; word-wrap: break-word; }
     .muted { color: #666; font-size: .9rem; }
     button { padding: .6rem 1rem; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
-    button[disabled] { opacity: 0.6; cursor: not-allowed; }
     button:hover { background: #f0f0f0; }
 
     /* Nicer typography for rendered Markdown */
@@ -64,40 +63,16 @@ HTML = """
     .prose code { background: #f6f8fa; padding: .1rem .25rem; border-radius: 4px; }
     .prose pre { background: #f6f8fa; padding: .6rem; border-radius: 8px; overflow: auto; }
     .prose hr { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
-
-    /* Simple spinner */
-    .spinner {
-      display: inline-block; width: 16px; height: 16px; border: 2px solid #bbb; border-top-color: #555;
-      border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
-  <script>
-    function startChecking(formEl) {
-      const status = document.getElementById('status');
-      const btn = formEl.querySelector('button[type="submit"]');
-      if (status) {
-        status.innerHTML = '<span class="spinner"></span>Checking work...';
-      }
-      if (btn) {
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent;
-        btn.textContent = 'Checking...';
-      }
-      // Let the form submit normally (page reload). Message stays visible until response arrives.
-      return true;
-    }
-  </script>
 </head>
 <body>
   <h1>Derivative Tutor</h1>
 
-  <form method="POST" enctype="multipart/form-data" class="card" onsubmit="return startChecking(this)">
+  <form method="POST" enctype="multipart/form-data" class="card">
     <label>Upload a photo of your function, its derivative, and how you found the answer. The tutor will give you feedback!</label><br><br>
     <input type="file" name="equation_image" accept="image/*,.heic,.heif" required />
     <br><br>
     <button type="submit">Check my work</button>
-    <div id="status" class="muted" style="margin-top:.5rem;"></div>
   </form>
 
   {% if preview_src %}
@@ -112,12 +87,17 @@ HTML = """
       {% if error %}
         <pre>{{ error }}</pre>
       {% else %}
+        <!-- We'll render Markdown → HTML here, then typeset LaTeX with MathJax -->
         <div id="model-feedback" class="prose"></div>
         <script>
+          // Raw markdown from Flask (safe-encoded as JSON string)
           const rawMd = {{ response_md|tojson }};
-          const html = DOMPurify.sanitize(marked.parse(rawMd), { USE_PROFILES: { html: true } });
+          // Convert Markdown to HTML, then sanitize
+          const html = DOMPurify.sanitize(marked.parse(rawMd), {USE_PROFILES: {html: true}});
+          // Inject into the page
           const el = document.getElementById('model-feedback');
           el.innerHTML = html;
+          // Ask MathJax to typeset any LaTeX in the converted content
           if (window.MathJax && MathJax.typesetPromise) {
             MathJax.typesetPromise([el]);
           }
@@ -129,6 +109,7 @@ HTML = """
 </body>
 </html>
 """
+
 
 
 def to_data_url(img_bytes: bytes, mime: str) -> str:
