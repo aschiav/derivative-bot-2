@@ -13,6 +13,16 @@ register_heif_opener()  # Enable PIL to open .heic/.heif
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8 MB max upload
 
+@app.after_request
+def allow_canvas_iframe(resp):
+    # Remove old X-Frame-Options if any
+    resp.headers.pop("X-Frame-Options", None)
+    # Allow Canvas to frame your site (update the domain to your school’s Canvas)
+    resp.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'self' https://*.instructure.com https://canvas.stjohns.edu"
+    )
+    return resp
+
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("Missing OPENAI_API_KEY")
