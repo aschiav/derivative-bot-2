@@ -40,17 +40,40 @@ HTML = """
     pre { white-space: pre-wrap; word-wrap: break-word; }
     .muted { color: #666; font-size: .9rem; }
     button { padding: .6rem 1rem; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
     button:hover { background: #f0f0f0; }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px; border: 2px solid #bbb; border-top-color: #555;
+      border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
+  <script>
+    function startChecking(formEl) {
+      const status = document.getElementById('status');
+      const btn = formEl.querySelector('button[type="submit"]');
+      if (status) {
+        status.innerHTML = '<span class="spinner"></span>Checking...';
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = 'Checking...';
+      }
+      // Let the form submit normally; page will reload with results.
+      return true;
+    }
+  </script>
 </head>
 <body>
   <h1>Derivative Tutor</h1>
 
-  <form method="POST" enctype="multipart/form-data" class="card">
+  <form method="POST" enctype="multipart/form-data" class="card" onsubmit="return startChecking(this)">
     <label>Upload a photo of your function, its derivative, and how you found the answer. The tutor will give you feedback</label><br><br>
     <input type="file" name="equation_image" accept="image/*,.heic,.heif" required />
     <br><br>
     <button type="submit">Check my work</button>
+    <div id="status" class="muted" style="margin-top:.5rem;"></div>
   </form>
 
   {% if preview_src %}
@@ -74,6 +97,7 @@ HTML = """
 </body>
 </html>
 """
+
 
 def to_data_url(img_bytes: bytes, mime: str) -> str:
     b64 = base64.b64encode(img_bytes).decode("utf-8")
